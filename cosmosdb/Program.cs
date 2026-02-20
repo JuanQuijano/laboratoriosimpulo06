@@ -39,10 +39,22 @@ try
 
 
     // DEFINE A TYPED ITEM (PRODUCT) TO ADD TO THE CONTAINER
+    Product newItem = new Product
+    {
+        id = Guid.NewGuid().ToString(), // Generate a unique ID for the product
+        name = "Sample Item",
+        description = "Este es un item de ejemplo para el laboratorio de Cosmos DB en el curso AZ-204."
+    };
 
 
     // ADD THE ITEM TO THE CONTAINER
+    ItemResponse<Product> createResponse = await container.CreateItemAsync(
+        item: newItem,
+        partitionKey: new PartitionKey(newItem.id)
+    );
 
+    Console.WriteLine($"He creado un elemento con ID: {createResponse.Resource.id}");
+    Console.WriteLine($"Costo de la solicitud: {createResponse.RequestCharge} RUs");
 
 }
 catch (CosmosException ex)
