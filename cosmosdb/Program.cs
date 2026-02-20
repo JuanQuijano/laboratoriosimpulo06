@@ -26,16 +26,21 @@ CosmosClient client = new(
 
 try
 {
+    double totalRequestCharge = 0;
+
     // CREATE A DATABASE IF IT DOESN'T ALREADY EXIST
-    Database database = await client.CreateDatabaseIfNotExistsAsync(databaseName);
-    Console.WriteLine($"He creado o recuperado la base de datos: {database.Id}");
+    (Database database, double databaseRequestCharge) = await CreateDatabaseIfNotExistsWithChargeAsync(client, databaseName);
+    totalRequestCharge += databaseRequestCharge;
+    Console.WriteLine($"Costo de conectar con la base de datos: {databaseRequestCharge} RUs");
 
     // CREATE A CONTAINER WITH A SPECIFIED PARTITION KEY
-    Container container = await database.CreateContainerIfNotExistsAsync(
-        id: containerName,
-        partitionKeyPath: "/id"
+    (Container container, double containerRequestCharge) = await CreateContainerIfNotExistsWithChargeAsync(
+        database,
+        containerName,
+        "/id"
     );
-    Console.WriteLine($"He creado o recuperado el contenedor: {container.Id}");
+    totalRequestCharge += containerRequestCharge;
+    Console.WriteLine($"Costo de conectar con el contenedor: {containerRequestCharge} RUs");
 
 
     // DEFINE A TYPED ITEM (PRODUCT) TO ADD TO THE CONTAINER
@@ -48,13 +53,36 @@ try
 
 
     // ADD THE ITEM TO THE CONTAINER
-    ItemResponse<Product> createResponse = await container.CreateItemAsync(
-        item: newItem,
-        partitionKey: new PartitionKey(newItem.id)
-    );
+    (Product createdProduct, double createItemRequestCharge) = await CreateProductWithChargeAsync(container, newItem);
+    totalRequestCharge += createItemRequestCharge;
 
-    Console.WriteLine($"He creado un elemento con ID: {createResponse.Resource.id}");
-    Console.WriteLine($"Costo de la solicitud: {createResponse.RequestCharge} RUs");
+    Console.WriteLine($"Costo de creación del item: {createItemRequestCharge} RUs");
+
+    // QUERY THE CONTAINER TO RETRIEVE THE ITEM WE JUST CREATED
+    (Product? recoveredProduct, double queryRequestCharge) = await QueryProductByIdWithChargeAsync(container, newItem.id);
+    totalRequestCharge += queryRequestCharge;
+    Console.WriteLine($"Costo de recuperar un item: {queryRequestCharge} RUs");
+
+    if (recoveredProduct is not null)
+    {
+        (Product updatedProduct, double updateRequestCharge) = await UpdateProductDescriptionAsync(
+            container,
+            recoveredProduct,
+            "Descripción actualizada después de recuperar el item"
+        );
+        totalRequestCharge += updateRequestCharge;
+        Console.WriteLine($"Costo de la actualización de un item: {updateRequestCharge} RUs");
+
+        if (!string.IsNullOrEmpty(updatedProduct.id))
+        {
+            double deleteRequestCharge = await DeleteProductWithChargeAsync(container, updatedProduct.id);
+            totalRequestCharge += deleteRequestCharge;
+            Console.WriteLine($"Costo de eliminación de un item: {deleteRequestCharge} RUs");
+        }
+    }
+
+    Console.WriteLine($"Costo total de la ejecución de las operaciones CRUD: {totalRequestCharge:F2} RUs");
+    
 
 }
 catch (CosmosException ex)
@@ -68,6 +96,75 @@ catch (Exception ex)
     // Handle general exceptions
     // Log the error message for debugging
     Console.WriteLine($"Error: {ex.Message}");
+}
+
+async Task<(Product UpdatedProduct, double RequestCharge)> UpdateProductDescriptionAsync(Container container, Product product, string newDescription)
+{
+    product.description = newDescription;
+    ItemResponse<Product> updateResponse = await container.ReplaceItemAsync(
+        item: product,
+        id: product.id,
+        partitionKey: new PartitionKey(product.id)
+    );
+
+    return (updateResponse.Resource, updateResponse.RequestCharge);
+}
+
+async Task<double> DeleteProductWithChargeAsync(Container container, string productId)
+{
+    ItemResponse<Product> deleteResponse = await container.DeleteItemAsync<Product>(
+        id: productId,
+        partitionKey: new PartitionKey(productId)
+    );
+
+    return deleteResponse.RequestCharge;
+}
+
+async Task<(Database Database, double RequestCharge)> CreateDatabaseIfNotExistsWithChargeAsync(CosmosClient client, string dbName)
+{
+    DatabaseResponse databaseResponse = await client.CreateDatabaseIfNotExistsAsync(dbName);
+    return (databaseResponse.Database, databaseResponse.RequestCharge);
+}
+
+async Task<(Container Container, double RequestCharge)> CreateContainerIfNotExistsWithChargeAsync(Database database, string contName, string partitionKeyPath)
+{
+    ContainerResponse containerResponse = await database.CreateContainerIfNotExistsAsync(
+        id: contName,
+        partitionKeyPath: partitionKeyPath
+    );
+    return (containerResponse.Container, containerResponse.RequestCharge);
+}
+
+async Task<(Product CreatedProduct, double RequestCharge)> CreateProductWithChargeAsync(Container container, Product product)
+{
+    ItemResponse<Product> createResponse = await container.CreateItemAsync(
+        item: product,
+        partitionKey: new PartitionKey(product.id)
+    );
+    return (createResponse.Resource, createResponse.RequestCharge);
+}
+
+async Task<(Product? Product, double RequestCharge)> QueryProductByIdWithChargeAsync(Container container, string productId)
+{
+    QueryDefinition queryDefinition = new QueryDefinition("SELECT * FROM c WHERE c.id = @id")
+        .WithParameter("@id", productId);
+
+    FeedIterator<Product> queryResultSetIterator = container.GetItemQueryIterator<Product>(queryDefinition);
+    double totalQueryRequestCharge = 0;
+    Product? recoveredProduct = null;
+
+    while (queryResultSetIterator.HasMoreResults)
+    {
+        FeedResponse<Product> currentResultSet = await queryResultSetIterator.ReadNextAsync();
+        totalQueryRequestCharge += currentResultSet.RequestCharge;
+
+        foreach (Product product in currentResultSet)
+        {
+            recoveredProduct = product;
+        }
+    }
+
+    return (recoveredProduct, totalQueryRequestCharge);
 }
 
 // This class represents a product in the Cosmos DB container
