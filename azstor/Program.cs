@@ -1,15 +1,21 @@
 ﻿using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using Azure.Identity;
+using DotNetEnv;
 
 Console.WriteLine("Azure Blob Storage exercise\n");
 
-// Create a DefaultAzureCredentialOptions object to configure the DefaultAzureCredential
-DefaultAzureCredentialOptions options = new()
+// Load environment variables from .env file
+DotNetEnv.Env.Load();
+
+// Get credentials from environment variables
+string? accountName = Environment.GetEnvironmentVariable("STORAGE_ACCOUNT_NAME");
+string? sasToken = Environment.GetEnvironmentVariable("STORAGE_SAS_TOKEN");
+
+if (string.IsNullOrEmpty(accountName) || string.IsNullOrEmpty(sasToken))
 {
-    ExcludeEnvironmentCredential = true,
-    ExcludeManagedIdentityCredential = true
-};
+    Console.WriteLine("Error: STORAGE_ACCOUNT_NAME and STORAGE_SAS_TOKEN must be set in .env file");
+    return;
+}
 
 // Run the examples asynchronously, wait for the results before proceeding
 await ProcessAsync();
@@ -20,15 +26,9 @@ Console.ReadLine();
 async Task ProcessAsync()
 {
     // CREATE A BLOB STORAGE CLIENT
-    // Create a credential using DefaultAzureCredential with configured options
-    string accountName = "storageacct20192"; // Replace with your storage account name
-
-    // Use the DefaultAzureCredential with the options configured at the top of the program
-    DefaultAzureCredential credential = new DefaultAzureCredential(options);
-
-    // Create the BlobServiceClient using the endpoint and DefaultAzureCredential
+    // Create the BlobServiceClient using the SAS token
     string blobServiceEndpoint = $"https://{accountName}.blob.core.windows.net";
-    BlobServiceClient blobServiceClient = new BlobServiceClient(new Uri(blobServiceEndpoint), credential);
+    BlobServiceClient blobServiceClient = new BlobServiceClient(new Uri($"{blobServiceEndpoint}?{sasToken}"));
 
 
     // CREATE A CONTAINER
@@ -39,18 +39,6 @@ async Task ProcessAsync()
     Console.WriteLine("Creating container: " + containerName);
     BlobContainerClient containerClient =
         await blobServiceClient.CreateBlobContainerAsync(containerName);
-
-    // Check if the container was created successfully
-    if (containerClient != null)
-    {
-        Console.WriteLine("Container created successfully, press 'Enter' to continue.");
-        Console.ReadLine();
-    }
-    else
-    {
-        Console.WriteLine("Failed to create the container, exiting program.");
-        return;
-    }
 
 
     // CREATE A LOCAL FILE FOR UPLOAD TO BLOB STORAGE
@@ -80,33 +68,6 @@ using (FileStream uploadFileStream = File.OpenRead(localFilePath))
 }
 
 
-// Verify if the file was uploaded successfully
-bool blobExists = await blobClient.ExistsAsync();
-if (blobExists)
-{
-    Console.WriteLine("File uploaded successfully, press 'Enter' to continue.");
-    Console.ReadLine();
-}
-else
-{
-    Console.WriteLine("File upload failed, exiting program..");
-    return;
-}
-
-
-
-    // LIST BLOBS IN THE CONTAINER
-    Console.WriteLine("Listing blobs in container...");
-await foreach (BlobItem blobItem in containerClient.GetBlobsAsync())
-{
-    Console.WriteLine("\t" + blobItem.Name);
-}
-
-Console.WriteLine("Press 'Enter' to continue.");
-Console.ReadLine();
-
-
-
     // DOWNLOAD THE BLOB TO A LOCAL FILE
 // Adds the string "DOWNLOADED" before the .txt extension so it doesn't 
 // overwrite the original file
@@ -124,5 +85,11 @@ using (FileStream downloadFileStream = File.OpenWrite(downloadFilePath))
 }
 
 Console.WriteLine("Blob downloaded successfully to: {0}", downloadFilePath);
+
+// READ AND DISPLAY THE DOWNLOADED FILE CONTENT
+Console.WriteLine("\n--- Contenido del fichero descargado ---");
+string fileContent = await File.ReadAllTextAsync(downloadFilePath);
+Console.WriteLine(fileContent);
+Console.WriteLine("--- Fin del contenido ---\n");
 
 }
