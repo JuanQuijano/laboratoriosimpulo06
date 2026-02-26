@@ -1,0 +1,78 @@
+﻿@model apim.Models.PetListViewModel
+
+@{
+    ViewData["Title"] = "Swagger Petstore";
+}
+
+<h1 class="mb-3">Swagger Petstore desde Azure APIM</h1>
+
+<form method="get" asp-action="Index" class="row g-2 align-items-end mb-4">
+    <div class="col-auto">
+        <label class="form-label" for="status">Estado</label>
+        <select class="form-select" id="status" name="status">
+            @foreach (var status in Model.Statuses)
+            {
+                if (status == Model.SelectedStatus)
+                {
+                    <option value="@status" selected>@status</option>
+                }
+                else
+                {
+                    <option value="@status">@status</option>
+                }
+            }
+        </select>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Buscar mascotas</button>
+    </div>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @Model.ErrorMessage
+    </div>
+}
+
+@if (Model.ApiFound)
+{
+    <p class="text-muted mb-3">
+        API encontrada: <strong>@Model.ApiName</strong>
+        @if (!string.IsNullOrWhiteSpace(Model.ApiPath))
+        {
+            <span>(path: @Model.ApiPath)</span>
+        }
+    </p>
+}
+
+@if (Model.Pets.Count == 0 && string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="alert alert-warning" role="alert">
+        No se encontraron mascotas para el estado <strong>@Model.SelectedStatus</strong>.
+    </div>
+}
+else if (Model.Pets.Count > 0)
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Nombre</th>
+                <th>Estado</th>
+                <th>Categoría</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var pet in Model.Pets)
+            {
+                <tr>
+                    <td>@pet.Id</td>
+                    <td>@pet.Name</td>
+                    <td>@pet.Status</td>
+                    <td>@pet.CategoryName</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
