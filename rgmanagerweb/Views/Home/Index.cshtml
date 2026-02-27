@@ -1,0 +1,192 @@
+﻿@model rgmanagerweb.Models.ResourceGroupManagerViewModel
+
+@{
+    ViewData["Title"] = "Administrador de Resource Groups";
+}
+
+<section class="mb-4">
+    <div class="p-4 p-md-5 bg-light rounded-3 border">
+        <h1 class="display-6 mb-2">Administrador de Resource Groups</h1>
+        <p class="text-secondary mb-0">Selecciona una suscripción, revisa sus grupos de recursos, borra los que elijas y crea nuevos grupos.</p>
+    </div>
+</section>
+
+@if (TempData["SuccessMessage"] is string successMessage)
+{
+    <div class="alert alert-success" role="alert">@successMessage</div>
+}
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+<section class="mb-4">
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <h2 class="h5 card-title">1) Suscripción</h2>
+            <form method="get" asp-action="Index" class="row g-3 align-items-end">
+                <div class="col-12 col-md-8 col-lg-6">
+                    <label for="subscriptionId" class="form-label">Suscripción</label>
+                    <input type="hidden" name="sortColumn" value="@Model.SortColumn" />
+                    <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+                    <select id="subscriptionId" name="subscriptionId" class="form-select" onchange="this.form.submit()">
+                        @foreach (var subscription in Model.Subscriptions)
+                        {
+                            if (subscription.Id == Model.SelectedSubscriptionId)
+                            {
+                                <option value="@subscription.Id" selected>@subscription.DisplayName (@subscription.Id)</option>
+                            }
+                            else
+                            {
+                                <option value="@subscription.Id">@subscription.DisplayName (@subscription.Id)</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button type="submit" class="btn btn-primary">Actualizar lista</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.SelectedSubscriptionId))
+{
+    <section class="mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h2 class="h5 card-title">2) Crear nuevo Resource Group</h2>
+                <form method="post" asp-action="CreateResourceGroup" class="row g-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="subscriptionId" value="@Model.SelectedSubscriptionId" />
+                    <input type="hidden" name="sortColumn" value="@Model.SortColumn" />
+                    <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+
+                    <div class="col-12 col-md-5">
+                        <label for="resourceGroupName" class="form-label">Nombre</label>
+                        <input id="resourceGroupName" name="resourceGroupName" class="form-control" placeholder="rg-demo-app" required />
+                    </div>
+
+                    <div class="col-12 col-md-5">
+                        <label for="location" class="form-label">Ubicación</label>
+                        <input id="location" name="location" class="form-control" placeholder="eastus" required />
+                    </div>
+
+                    <div class="col-12 col-md-2 d-grid">
+                        <button type="submit" class="btn btn-success">Crear</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <form method="post" asp-action="DeleteResourceGroups" id="deleteResourceGroupsForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="subscriptionId" value="@Model.SelectedSubscriptionId" />
+                    <input type="hidden" name="sortColumn" value="@Model.SortColumn" />
+                    <input type="hidden" name="sortDirection" value="@Model.SortDirection" />
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h5 card-title mb-0">3) Grupos de recursos</h2>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge text-bg-secondary">@Model.ResourceGroups.Count grupo(s)</span>
+                            <button type="submit" class="btn btn-sm btn-outline-danger delete-selected-button" @(Model.ResourceGroups.Count == 0 ? "disabled" : null)>
+                                Borrar seleccionados
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="deleteProgressMessage" class="alert alert-info d-none" role="status" aria-live="polite">
+                        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                        Eliminando grupos de recursos, por favor espera...
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-3">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 56px;" class="text-center">Sel.</th>
+                                    <th>
+                                        <a asp-action="Index"
+                                           asp-route-subscriptionId="@Model.SelectedSubscriptionId"
+                                           asp-route-sortColumn="name"
+                                           asp-route-sortDirection="@Model.NextNameSortDirection"
+                                           class="text-decoration-none text-dark">
+                                            Nombre @(Model.SortColumn == "name" ? (Model.SortDirection == "asc" ? "↑" : "↓") : "")
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a asp-action="Index"
+                                           asp-route-subscriptionId="@Model.SelectedSubscriptionId"
+                                           asp-route-sortColumn="location"
+                                           asp-route-sortDirection="@Model.NextLocationSortDirection"
+                                           class="text-decoration-none text-dark">
+                                            Ubicación @(Model.SortColumn == "location" ? (Model.SortDirection == "asc" ? "↑" : "↓") : "")
+                                        </a>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (Model.ResourceGroups.Count == 0)
+                                {
+                                    <tr>
+                                        <td colspan="3" class="text-center text-secondary py-4">No hay grupos de recursos en esta suscripción.</td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var resourceGroup in Model.ResourceGroups)
+                                    {
+                                        <tr>
+                                            <td class="text-center">
+                                                <input class="form-check-input" type="checkbox" name="selectedResourceGroups" value="@resourceGroup.Name" />
+                                            </td>
+                                            <td class="fw-semibold">@resourceGroup.Name</td>
+                                            <td><span class="badge text-bg-light">@resourceGroup.Location</span></td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button type="submit" class="btn btn-outline-danger delete-selected-button" @(Model.ResourceGroups.Count == 0 ? "disabled" : null)>
+                        Borrar seleccionados
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+}
+
+@section Scripts {
+    <script>
+        (() => {
+            const deleteForm = document.getElementById('deleteResourceGroupsForm');
+            const deleteButtons = document.querySelectorAll('.delete-selected-button');
+            const deleteProgressMessage = document.getElementById('deleteProgressMessage');
+
+            if (!deleteForm || deleteButtons.length === 0 || !deleteProgressMessage) {
+                return;
+            }
+
+            deleteForm.addEventListener('submit', () => {
+                const checked = deleteForm.querySelectorAll('input[name="selectedResourceGroups"]:checked');
+                if (checked.length === 0) {
+                    return;
+                }
+
+                deleteButtons.forEach((button) => {
+                    button.disabled = true;
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Borrando...';
+                });
+                deleteProgressMessage.classList.remove('d-none');
+            });
+        })();
+    </script>
+}
