@@ -1,11 +1,17 @@
 using Azure.Identity;
 using Azure.ResourceManager;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Identity.Web;
 using rgmanagerweb.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services
+    .AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
+builder.Services.AddAuthorization();
 builder.Services.AddSingleton(_ => new ArmClient(new DefaultAzureCredential()));
 builder.Services.AddScoped<IAzureResourceGroupService, AzureResourceGroupService>();
 
@@ -22,6 +28,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

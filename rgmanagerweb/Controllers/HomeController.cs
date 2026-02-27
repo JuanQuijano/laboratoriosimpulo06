@@ -1,10 +1,12 @@
 using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using rgmanagerweb.Models;
 using rgmanagerweb.Services;
 
 namespace rgmanagerweb.Controllers;
 
+[Authorize]
 public class HomeController(IAzureResourceGroupService resourceGroupService) : Controller
 {
     private readonly IAzureResourceGroupService _resourceGroupService = resourceGroupService;
@@ -23,13 +25,21 @@ public class HomeController(IAzureResourceGroupService resourceGroupService) : C
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateResourceGroup(
-        string subscriptionId,
-        string resourceGroupName,
-        string location,
+        CreateResourceGroupRequest request,
         string? sortColumn,
         string? sortDirection,
         CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+        {
+            TempData["ErrorMessage"] = "Debes seleccionar suscripción, nombre y ubicación.";
+            return RedirectToAction(nameof(Index), new { subscriptionId = request.SubscriptionId, sortColumn, sortDirection });
+        }
+
+        var subscriptionId = request.SubscriptionId.Trim();
+        var resourceGroupName = request.ResourceGroupName.Trim();
+        var location = request.Location.Trim();
+
         if (string.IsNullOrWhiteSpace(subscriptionId) || string.IsNullOrWhiteSpace(resourceGroupName) || string.IsNullOrWhiteSpace(location))
         {
             TempData["ErrorMessage"] = "Debes seleccionar suscripción, nombre y ubicación.";
@@ -40,8 +50,8 @@ public class HomeController(IAzureResourceGroupService resourceGroupService) : C
         {
             await _resourceGroupService.CreateResourceGroupAsync(
                 subscriptionId,
-                resourceGroupName.Trim(),
-                location.Trim(),
+                resourceGroupName,
+                location,
                 cancellationToken);
 
             TempData["SuccessMessage"] = $"Grupo de recursos '{resourceGroupName}' creado correctamente.";
@@ -57,19 +67,23 @@ public class HomeController(IAzureResourceGroupService resourceGroupService) : C
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteResourceGroups(
-        string subscriptionId,
-        List<string>? selectedResourceGroups,
+        DeleteResourceGroupsRequest request,
         string? sortColumn,
         string? sortDirection,
         CancellationToken cancellationToken)
     {
+        var subscriptionId = request.SubscriptionId?.Trim() ?? string.Empty;
+
         if (string.IsNullOrWhiteSpace(subscriptionId))
         {
             TempData["ErrorMessage"] = "Debes seleccionar una suscripción.";
             return RedirectToAction(nameof(Index), new { sortColumn, sortDirection });
         }
 
-        var selected = selectedResourceGroups ?? [];
+        var selected = request.SelectedResourceGroups
+            .Where(resourceGroupName => !string.IsNullOrWhiteSpace(resourceGroupName))
+            .Select(resourceGroupName => resourceGroupName.Trim())
+            .ToList();
 
         if (selected.Count == 0)
         {
@@ -96,13 +110,8 @@ public class HomeController(IAzureResourceGroupService resourceGroupService) : C
         string? sortDirection,
         CancellationToken cancellationToken)
     {
-        var normalizedSortColumn = sortColumn?.Trim().ToLowerInvariant() switch
-        {
-            "location" => "location",
-            _ => "name"
-        };
-
-        var normalizedSortDirection = sortDirection?.Trim().ToLowerInvariant() == "desc" ? "desc" : "asc";
+        var normalizedSortColumn = ResourceGroupSorting.NormalizeSortColumn(sortColumn);
+        var normalizedSortDirection = ResourceGroupSorting.NormalizeSortDirection(sortDirection);
 
         var subscriptions = await _resourceGroupService.GetSubscriptionsAsync(cancellationToken);
 
@@ -115,27 +124,12 @@ public class HomeController(IAzureResourceGroupService resourceGroupService) : C
         var resourceGroups = new List<ResourceGroupItem>();
         if (!string.IsNullOrWhiteSpace(resolvedSubscriptionId))
         {
-            resourceGroups = (await _resourceGroupService.GetResourceGroupsAsync(resolvedSubscriptionId, cancellationToken)).ToList();
-
-            resourceGroups = normalizedSortColumn switch
-            {
-                "location" when normalizedSortDirection == "desc" => resourceGroups
-                    .OrderByDescending(resourceGroup => resourceGroup.Location, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(resourceGroup => resourceGroup.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
-                "location" => resourceGroups
-                    .OrderBy(resourceGroup => resourceGroup.Location, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(resourceGroup => resourceGroup.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
-                _ when normalizedSortDirection == "desc" => resourceGroups
-                    .OrderByDescending(resourceGroup => resourceGroup.Name, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(resourceGroup => resourceGroup.Location, StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
-                _ => resourceGroups
-                    .OrderBy(resourceGroup => resourceGroup.Name, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(resourceGroup => resourceGroup.Location, StringComparer.OrdinalIgnoreCase)
-                    .ToList()
-            };
+            resourceGroups = ResourceGroupSorting
+                .Sort(
+                    await _resourceGroupService.GetResourceGroupsAsync(resolvedSubscriptionId, cancellationToken),
+                    normalizedSortColumn,
+                    normalizedSortDirection)
+                .ToList();
         }
 
         return new ResourceGroupManagerViewModel

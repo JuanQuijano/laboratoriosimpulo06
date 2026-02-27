@@ -95,6 +95,13 @@
                         <h2 class="h5 card-title mb-0">3) Grupos de recursos</h2>
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge text-bg-secondary">@Model.ResourceGroups.Count grupo(s)</span>
+                            <a asp-action="Index"
+                               asp-route-subscriptionId="@Model.SelectedSubscriptionId"
+                               asp-route-sortColumn="@Model.SortColumn"
+                               asp-route-sortDirection="@Model.SortDirection"
+                               class="btn btn-sm btn-outline-primary">
+                                Refrescar
+                            </a>
                             <button type="submit" class="btn btn-sm btn-outline-danger delete-selected-button" @(Model.ResourceGroups.Count == 0 ? "disabled" : null)>
                                 Borrar seleccionados
                             </button>

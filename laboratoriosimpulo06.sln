@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "apim", "apim\apim.csproj", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rgmanagerweb", "rgmanagerweb\rgmanagerweb.csproj", "{B59F6030-B3ED-48C7-B7AD-CF41F1275E20}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rgmanagerweb.tests", "rgmanagerweb.tests\rgmanagerweb.tests.csproj", "{001E26F0-17F7-435F-9E74-03D91CBB796E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{B59F6030-B3ED-48C7-B7AD-CF41F1275E20}.Release|x64.Build.0 = Release|Any CPU
 		{B59F6030-B3ED-48C7-B7AD-CF41F1275E20}.Release|x86.ActiveCfg = Release|Any CPU
 		{B59F6030-B3ED-48C7-B7AD-CF41F1275E20}.Release|x86.Build.0 = Release|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Debug|x64.Build.0 = Debug|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Debug|x86.Build.0 = Debug|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Release|x64.ActiveCfg = Release|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Release|x64.Build.0 = Release|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Release|x86.ActiveCfg = Release|Any CPU
+		{001E26F0-17F7-435F-9E74-03D91CBB796E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
